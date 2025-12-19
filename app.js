@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, remove, update, onChildAdded, get, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, onValue, get, serverTimestamp, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Firebase 설정 - 사용자의 프로젝트 정보로 유지
+// Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyDhf_58nNbyQAk7nUxOCw5ChACJTRkCO0U",
     authDomain: "brocasting-2c5e3.firebaseapp.com",
@@ -15,31 +15,34 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const ICE_SERVERS = [
-    {
-        urls: "stun:stun.relay.metered.ca:80",
-    },
-    {
-        urls: "turn:global.relay.metered.ca:80",
-        username: "a4cb74d3f0c3048c8b567be0",
-        credential: "OOX5V5soJNeowzGU",
-    },
-    {
-        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-        username: "a4cb74d3f0c3048c8b567be0",
-        credential: "OOX5V5soJNeowzGU",
-    },
-    {
-        urls: "turn:global.relay.metered.ca:443",
-        username: "a4cb74d3f0c3048c8b567be0",
-        credential: "OOX5V5soJNeowzGU",
-    },
-    {
-        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-        username: "a4cb74d3f0c3048c8b567be0",
-        credential: "OOX5V5soJNeowzGU",
-    },
-];
+// PeerJS ICE 서버 설정 (Metered TURN)
+const PEER_CONFIG = {
+    config: {
+        iceServers: [
+            { urls: "stun:stun.relay.metered.ca:80" },
+            {
+                urls: "turn:global.relay.metered.ca:80",
+                username: "a4cb74d3f0c3048c8b567be0",
+                credential: "OOX5V5soJNeowzGU",
+            },
+            {
+                urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                username: "a4cb74d3f0c3048c8b567be0",
+                credential: "OOX5V5soJNeowzGU",
+            },
+            {
+                urls: "turn:global.relay.metered.ca:443",
+                username: "a4cb74d3f0c3048c8b567be0",
+                credential: "OOX5V5soJNeowzGU",
+            },
+            {
+                urls: "turns:global.relay.metered.ca:443?transport=tcp",
+                username: "a4cb74d3f0c3048c8b567be0",
+                credential: "OOX5V5soJNeowzGU",
+            },
+        ]
+    }
+};
 
 // --- 방송자(Broadcaster) 로직 ---
 export async function initBroadcaster() {
@@ -47,7 +50,8 @@ export async function initBroadcaster() {
     // 혼동되는 문자 제외 (0, O, I, l, 1)
     const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     let roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
-    let peers = {}; // viewerId -> SimplePeer
+    let peer = null;
+    let connections = {};
     let currentFacingMode = 'environment';
     let wakeLock = null;
 
@@ -100,7 +104,7 @@ export async function initBroadcaster() {
             document.getElementById('stats')?.classList.remove('hidden');
             if (roomCodeDisplay) roomCodeDisplay.innerText = roomCode;
 
-            // 화면 꺼짐 방지 (Wake Lock)
+            // 화면 꺼짐 방지
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
@@ -109,97 +113,59 @@ export async function initBroadcaster() {
                 }
             }
 
-            // Firebase 방 생성 및 자동 삭제 설정
-            const roomRef = ref(db, `rooms/${roomCode}`);
-            set(roomRef, { broadcaster: 'active', createdAt: serverTimestamp() });
-            onDisconnect(roomRef).remove();
+            // PeerJS 초기화 - 방송자 ID로 roomCode 사용
+            const Peer = window.Peer;
+            if (!Peer) {
+                console.error('[Broadcaster] PeerJS not loaded!');
+                alert('PeerJS 로드 실패. 페이지를 새로고침해주세요.');
+                return;
+            }
 
-            // 시청자 연결 신호 감지
-            const signalsRef = ref(db, `rooms/${roomCode}/signals`);
-            console.log('[Broadcaster] Listening for signals at:', `rooms/${roomCode}/signals`);
+            peer = new Peer('broadcaster_' + roomCode, PEER_CONFIG);
 
-            onChildAdded(signalsRef, (snapshot) => {
-                const viewerId = snapshot.key;
-                const data = snapshot.val();
+            peer.on('open', (id) => {
+                console.log('[Broadcaster] PeerJS connected with ID:', id);
 
-                console.log('[Broadcaster] Signal received - key:', viewerId, 'data:', JSON.stringify(data).substring(0, 100));
-
-                // answer와 candidate 경로는 무시
-                if (!viewerId || viewerId.endsWith('_ans') || viewerId.endsWith('_cand')) {
-                    console.log('[Broadcaster] Ignoring signal (answer/candidate path)');
-                    return;
-                }
-
-                if (data && data.type === 'offer' && data.sdp) {
-                    console.log('[Broadcaster] ✅ Valid offer received from viewer:', viewerId);
-                    handleOffer(viewerId, data);
-                } else {
-                    console.log('[Broadcaster] ⚠️ Invalid offer data:', data);
-                }
+                // Firebase에 방 등록
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                set(roomRef, {
+                    broadcaster: 'active',
+                    peerId: id,
+                    createdAt: serverTimestamp()
+                });
+                onDisconnect(roomRef).remove();
             });
 
-            function handleOffer(viewerId, offerData) {
-                // CDN으로 로드된 SimplePeer 전역 객체 사용
-                const Peer = window.SimplePeer;
-                if (!Peer) {
-                    console.error('[Broadcaster] SimplePeer is not loaded');
-                    return;
-                }
+            peer.on('call', (call) => {
+                console.log('[Broadcaster] Incoming call from:', call.peer);
 
-                console.log('[Broadcaster] Creating peer for viewer:', viewerId);
-                const p = new Peer({
-                    initiator: false,
-                    stream: localStream,
-                    trickle: true,
-                    config: { iceServers: ICE_SERVERS }
-                });
+                // 시청자에게 스트림 전송
+                call.answer(localStream);
 
-                p.on('signal', signal => {
-                    if (signal.type === 'answer') {
-                        console.log('[Broadcaster] Sending answer to viewer');
-                        set(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans`), signal);
-                    } else if (signal.candidate) {
-                        console.log('[Broadcaster] Sending ICE candidate');
-                        push(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans_cand`), signal);
-                    }
-                });
+                connections[call.peer] = call;
+                updateViewerCount();
 
-                p.on('connect', () => {
-                    console.log('[Broadcaster] ✅ Viewer connected!');
-                    peers[viewerId] = p;
+                call.on('close', () => {
+                    console.log('[Broadcaster] Call closed:', call.peer);
+                    delete connections[call.peer];
                     updateViewerCount();
                 });
 
-                p.on('close', () => {
-                    console.log('[Broadcaster] Viewer disconnected');
-                    delete peers[viewerId];
+                call.on('error', (err) => {
+                    console.error('[Broadcaster] Call error:', err);
+                    delete connections[call.peer];
                     updateViewerCount();
                 });
+            });
 
-                p.on('error', (err) => {
-                    console.error('[Broadcaster] Peer error:', err);
-                    delete peers[viewerId];
-                    updateViewerCount();
-                });
-
-                // 완전한 offer 객체를 signal로 전달
-                console.log('[Broadcaster] Processing offer');
-                p.signal(offerData);
-
-                // 시청자의 ICE candidates 처리
-                onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}_cand`), s => {
-                    const val = s.val();
-                    if (val && val.candidate) {
-                        console.log('[Broadcaster] Received viewer ICE candidate');
-                        p.signal(val);
-                    }
-                });
-            }
+            peer.on('error', (err) => {
+                console.error('[Broadcaster] PeerJS error:', err);
+            });
         };
     }
 
     function updateViewerCount() {
-        const count = Object.keys(peers).length;
+        const count = Object.keys(connections).length;
         if (viewerCountDisplay) {
             viewerCountDisplay.innerText = `${count}명 시청 중`;
         }
@@ -209,6 +175,8 @@ export async function initBroadcaster() {
         btnStop.onclick = () => {
             if (confirm("🔴 방송을 종료하시겠습니까?")) {
                 if (wakeLock) wakeLock.release();
+                if (peer) peer.destroy();
+                remove(ref(db, `rooms/${roomCode}`));
                 window.location.href = "index.html";
             }
         };
@@ -218,7 +186,7 @@ export async function initBroadcaster() {
 // --- 시청자(Viewer) 로직 ---
 export async function initViewer() {
     let peer = null;
-    const viewerId = 'v_' + Math.random().toString(36).substring(7);
+    let currentCall = null;
 
     const joinScreen = document.getElementById('join-screen');
     const videoContainer = document.getElementById('video-container');
@@ -235,14 +203,22 @@ export async function initViewer() {
             if (code.length !== 6) return alert("6자리 코드를 입력해주세요.");
 
             try {
+                // Firebase에서 방 정보 확인
                 const snap = await get(ref(db, `rooms/${code}`));
                 if (!snap.exists()) return alert("⚠️ 존재하지 않는 방 코드입니다.\n코드를 다시 확인해주세요.");
+
+                const roomData = snap.val();
+                const broadcasterPeerId = roomData.peerId;
+
+                if (!broadcasterPeerId) {
+                    return alert("⚠️ 방송자가 연결되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                }
 
                 joinScreen?.classList.add('hidden');
                 videoContainer?.classList.remove('hidden');
                 if (activeCodeDisplay) activeCodeDisplay.innerText = code;
 
-                startConnection(code);
+                connectToStream(broadcasterPeerId, code);
             } catch (err) {
                 console.error('Firebase join error:', err);
                 alert("연결 중 오류가 발생했습니다.");
@@ -250,97 +226,76 @@ export async function initViewer() {
         };
     }
 
-    function startConnection(code) {
-        if (peer) peer.destroy();
-
-        const Peer = window.SimplePeer;
+    function connectToStream(broadcasterPeerId, code) {
+        const Peer = window.Peer;
         if (!Peer) {
-            console.error('[Viewer] SimplePeer not loaded!');
+            console.error('[Viewer] PeerJS not loaded!');
             return;
         }
 
-        console.log('[Viewer] Starting connection to room:', code, 'viewerId:', viewerId);
+        // 기존 연결 정리
+        if (currentCall) currentCall.close();
+        if (peer) peer.destroy();
 
-        // answer 중복 처리 방지 플래그
-        let answerReceived = false;
+        console.log('[Viewer] Connecting to broadcaster:', broadcasterPeerId);
 
-        peer = new Peer({
-            initiator: true,
-            trickle: true,
-            config: { iceServers: ICE_SERVERS }
-        });
+        peer = new Peer(PEER_CONFIG);
 
-        peer.on('signal', signal => {
-            if (signal.type === 'offer') {
-                console.log('[Viewer] Sending offer to broadcaster');
-                set(ref(db, `rooms/${code}/signals/${viewerId}`), signal);
-            } else if (signal.candidate) {
-                console.log('[Viewer] Sending ICE candidate');
-                push(ref(db, `rooms/${code}/signals/${viewerId}_cand`), signal);
+        peer.on('open', (id) => {
+            console.log('[Viewer] PeerJS connected with ID:', id);
+
+            // 방송자에게 전화 걸기
+            const call = peer.call(broadcasterPeerId, null); // null = 오디오/비디오 없이 받기만
+
+            if (!call) {
+                console.error('[Viewer] Failed to create call');
+                if (statusText) statusText.innerText = "연결 실패";
+                return;
             }
-        });
 
-        // 방송자의 Answer 수신 (한 번만 처리)
-        const answerRef = ref(db, `rooms/${code}/signals/${viewerId}_ans`);
-        const unsubscribeAnswer = onValue(answerRef, snap => {
-            const val = snap.val();
-            if (val && val.type === 'answer' && !answerReceived) {
-                answerReceived = true;
-                console.log('[Viewer] Received answer from broadcaster');
-                try {
-                    peer.signal(val);
-                } catch (e) {
-                    console.warn('[Viewer] Error processing answer:', e.message);
+            currentCall = call;
+
+            call.on('stream', (stream) => {
+                console.log('[Viewer] ✅ Stream received!');
+                if (remoteVideo) {
+                    remoteVideo.srcObject = stream;
+                    remoteVideo.play().catch(e => console.warn('Autoplay blocked:', e));
                 }
-            }
-        });
-
-        // 방송자의 Candidates 수신
-        onChildAdded(ref(db, `rooms/${code}/signals/${viewerId}_ans_cand`), snap => {
-            const val = snap.val();
-            if (val && val.candidate) {
-                console.log('[Viewer] Received broadcaster ICE candidate');
-                try {
-                    peer.signal(val);
-                } catch (e) {
-                    console.warn('[Viewer] Error processing ICE candidate:', e.message);
+                if (statusText) statusText.innerText = "연결됨 ✓";
+                if (statusDot) {
+                    statusDot.classList.remove('bg-yellow-500', 'animate-pulse');
+                    statusDot.classList.add('bg-emerald-500');
                 }
-            }
-        });
+            });
 
-        peer.on('stream', stream => {
-            console.log('[Viewer] ✅ Stream received!');
-            if (remoteVideo) remoteVideo.srcObject = stream;
-            if (statusText) statusText.innerText = "연결됨 ✓";
-            if (statusDot) {
-                statusDot.classList.replace('bg-yellow-500', 'bg-emerald-500');
-                statusDot.classList.remove('animate-pulse');
-            }
-        });
+            call.on('close', () => {
+                console.log('[Viewer] Call closed');
+                reconnect(broadcasterPeerId, code);
+            });
 
-        peer.on('connect', () => {
-            console.log('[Viewer] ✅ Peer connected!');
-        });
-
-        peer.on('close', () => {
-            console.log('[Viewer] Connection closed');
-            reconnect(code);
+            call.on('error', (err) => {
+                console.error('[Viewer] Call error:', err);
+                reconnect(broadcasterPeerId, code);
+            });
         });
 
         peer.on('error', (err) => {
-            console.error('[Viewer] Peer error:', err);
-            reconnect(code);
+            console.error('[Viewer] PeerJS error:', err);
+            if (statusText) statusText.innerText = "연결 오류";
+            setTimeout(() => reconnect(broadcasterPeerId, code), 3000);
         });
     }
 
-    function reconnect(code) {
+    function reconnect(broadcasterPeerId, code) {
         if (statusText) statusText.innerText = "재연결 중...";
         if (statusDot) {
-            statusDot.classList.replace('bg-emerald-500', 'bg-yellow-500');
-            statusDot.classList.add('animate-pulse');
+            statusDot.classList.remove('bg-emerald-500');
+            statusDot.classList.add('bg-yellow-500', 'animate-pulse');
         }
         setTimeout(() => {
-            if (document.visibilityState === 'visible') startConnection(code);
+            if (document.visibilityState === 'visible') {
+                connectToStream(broadcasterPeerId, code);
+            }
         }, 3000);
     }
 }
