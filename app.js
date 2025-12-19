@@ -16,32 +16,29 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const ICE_SERVERS = [
-    // STUN 서버
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    // 무료 TURN 서버 (ExpressTurn)
     {
-        urls: 'turn:relay1.expressturn.com:3478',
-        username: 'efQKVE7I0KVUYLQN3X',
-        credential: 'oFqXVZyJMvZsLsRV'
-    },
-    // 대체 TURN (OpenRelay)
-    {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: "stun:stun.relay.metered.ca:80",
     },
     {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: "turn:global.relay.metered.ca:80",
+        username: "a4cb74d3f0c3048c8b567be0",
+        credential: "OOX5V5soJNeowzGU",
     },
     {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
-    }
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "a4cb74d3f0c3048c8b567be0",
+        credential: "OOX5V5soJNeowzGU",
+    },
+    {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "a4cb74d3f0c3048c8b567be0",
+        credential: "OOX5V5soJNeowzGU",
+    },
+    {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "a4cb74d3f0c3048c8b567be0",
+        credential: "OOX5V5soJNeowzGU",
+    },
 ];
 
 // --- 방송자(Broadcaster) 로직 ---
