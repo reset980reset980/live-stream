@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, remove, update, onChildAdded, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, onValue, push, remove, update, onChildAdded, get, serverTimestamp, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// Firebase Configuration
+// Firebase 설정 - 사용자의 프로젝트 정보로 유지
 const firebaseConfig = {
     apiKey: "AIzaSyDhf_58nNbyQAk7nUxOCw5ChACJTRkCO0U",
     authDomain: "brocasting-2c5e3.firebaseapp.com",
@@ -20,7 +20,7 @@ const ICE_SERVERS = [
     { urls: 'stun:stun1.l.google.com:19302' }
 ];
 
-// --- Broadcaster Logic ---
+// --- 방송자(Broadcaster) 로직 ---
 export async function initBroadcaster() {
     let localStream = null;
     let roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -35,7 +35,7 @@ export async function initBroadcaster() {
     const roomCodeDisplay = document.getElementById('room-code-display');
     const viewerCountDisplay = document.getElementById('viewer-count');
 
-    // Camera Init
+    // 카메라 시작 함수
     async function startMedia(facingMode) {
         try {
             if (localStream) {
@@ -50,100 +50,110 @@ export async function initBroadcaster() {
                 },
                 audio: true
             });
-            preview.srcObject = localStream;
-            document.getElementById('setup-message').classList.add('hidden');
-            btnStart.classList.remove('hidden');
+            if (preview) preview.srcObject = localStream;
+            document.getElementById('setup-message')?.classList.add('hidden');
+            btnStart?.classList.remove('hidden');
         } catch (err) {
-            console.error(err);
-            alert("카메라 접근에 실패했습니다. 설정을 확인해주세요.");
+            console.error('Camera access error:', err);
+            alert("⚠️ 카메라 접근에 실패했습니다.\n\n해결방법:\n1. 브라우저 설정에서 카메라 권한 허용\n2. HTTPS 환경인지 확인");
         }
     }
 
     await startMedia(currentFacingMode);
 
-    btnFlip.onclick = () => {
-        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-        startMedia(currentFacingMode);
-    };
+    if (btnFlip) {
+        btnFlip.onclick = () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            startMedia(currentFacingMode);
+        };
+    }
 
-    btnStart.onclick = async () => {
-        btnStart.classList.add('hidden');
-        btnStop.classList.remove('hidden');
-        document.getElementById('room-info').classList.remove('hidden');
-        document.getElementById('live-indicator').classList.remove('hidden');
-        document.getElementById('stats').classList.remove('hidden');
-        roomCodeDisplay.innerText = roomCode;
+    if (btnStart) {
+        btnStart.onclick = async () => {
+            btnStart.classList.add('hidden');
+            btnStop?.classList.remove('hidden');
+            document.getElementById('room-info')?.classList.remove('hidden');
+            document.getElementById('live-indicator')?.classList.remove('hidden');
+            document.getElementById('stats')?.classList.remove('hidden');
+            if (roomCodeDisplay) roomCodeDisplay.innerText = roomCode;
 
-        // Start WakeLock
-        if ('wakeLock' in navigator) {
-            try { 
-                wakeLock = await navigator.wakeLock.request('screen'); 
-            } catch(e) {
-                console.warn('WakeLock failed', e);
+            // 화면 꺼짐 방지 (Wake Lock)
+            if ('wakeLock' in navigator) {
+                try { 
+                    wakeLock = await navigator.wakeLock.request('screen'); 
+                } catch(e) {
+                    console.warn('WakeLock failed', e);
+                }
             }
-        }
 
-        // Firebase Room Setup
-        const roomRef = ref(db, `rooms/${roomCode}`);
-        set(roomRef, { broadcaster: 'active', createdAt: serverTimestamp() });
-        // onDisconnect is only available on DatabaseReference in compat or via different modular approach
-        // but simple cleanup is handled on refresh/close.
+            // Firebase 방 생성 및 자동 삭제 설정
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            set(roomRef, { broadcaster: 'active', createdAt: serverTimestamp() });
+            onDisconnect(roomRef).remove();
 
-        // Listen for Viewers
-        const signalsRef = ref(db, `rooms/${roomCode}/signals`);
-        onChildAdded(signalsRef, (snapshot) => {
-            const viewerId = snapshot.key;
-            if (!viewerId || viewerId.endsWith('_ans')) return; 
+            // 시청자 연결 신호 감지
+            const signalsRef = ref(db, `rooms/${roomCode}/signals`);
+            onChildAdded(signalsRef, (snapshot) => {
+                const viewerId = snapshot.key;
+                if (!viewerId || viewerId.endsWith('_ans')) return; 
 
-            const data = snapshot.val();
-            if (data.type === 'offer') {
-                handleOffer(viewerId, data.sdp);
-            } else if (data.type === 'candidate' && peers[viewerId]) {
-                peers[viewerId].signal(data);
-            }
-        });
-
-        function handleOffer(viewerId, sdp) {
-            const p = new SimplePeer({
-                initiator: false,
-                stream: localStream,
-                trickle: true,
-                config: { iceServers: ICE_SERVERS }
-            });
-
-            p.on('signal', signal => {
-                if (signal.type === 'answer') {
-                    set(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans`), signal);
-                } else if (signal.candidate) {
-                    push(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans_cand`), signal);
+                const data = snapshot.val();
+                if (data.type === 'offer') {
+                    handleOffer(viewerId, data.sdp);
+                } else if (data.type === 'candidate' && peers[viewerId]) {
+                    peers[viewerId].signal(data);
                 }
             });
 
-            p.on('connect', () => {
-                peers[viewerId] = p;
-                updateViewerCount();
-            });
+            function handleOffer(viewerId, sdp) {
+                // CDN으로 로드된 SimplePeer 전역 객체 사용
+                const Peer = window.SimplePeer;
+                if (!Peer) {
+                    console.error('SimplePeer is not loaded');
+                    return;
+                }
 
-            p.on('close', () => {
-                delete peers[viewerId];
-                updateViewerCount();
-            });
+                const p = new Peer({
+                    initiator: false,
+                    stream: localStream,
+                    trickle: true,
+                    config: { iceServers: ICE_SERVERS }
+                });
 
-            p.on('error', (err) => {
-                console.error('Peer error', err);
-                delete peers[viewerId];
-                updateViewerCount();
-            });
+                p.on('signal', signal => {
+                    if (signal.type === 'answer') {
+                        set(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans`), signal);
+                    } else if (signal.candidate) {
+                        push(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans_cand`), signal);
+                    }
+                });
 
-            p.signal({ type: 'offer', sdp: sdp });
-            
-            // Handle candidates from viewer
-            onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}`), s => {
-                const val = s.val();
-                if (val && val.candidate) p.signal(val);
-            });
-        }
-    };
+                p.on('connect', () => {
+                    peers[viewerId] = p;
+                    updateViewerCount();
+                });
+
+                p.on('close', () => {
+                    delete peers[viewerId];
+                    updateViewerCount();
+                });
+
+                p.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    delete peers[viewerId];
+                    updateViewerCount();
+                });
+
+                p.signal({ type: 'offer', sdp: sdp });
+                
+                // 시청자의 ICE candidates 처리
+                onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}`), s => {
+                    const val = s.val();
+                    if (val && val.candidate) p.signal(val);
+                });
+            }
+        };
+    }
 
     function updateViewerCount() {
         const count = Object.keys(peers).length;
@@ -152,14 +162,17 @@ export async function initBroadcaster() {
         }
     }
 
-    btnStop.onclick = () => {
-        if (confirm("정말로 방송을 종료하시겠습니까?")) {
-            window.location.href = "index.html";
-        }
-    };
+    if (btnStop) {
+        btnStop.onclick = () => {
+            if (confirm("🔴 방송을 종료하시겠습니까?")) {
+                if (wakeLock) wakeLock.release();
+                window.location.href = "index.html";
+            }
+        };
+    }
 }
 
-// --- Viewer Logic ---
+// --- 시청자(Viewer) 로직 ---
 export async function initViewer() {
     let peer = null;
     const viewerId = 'v_' + Math.random().toString(36).substring(7);
@@ -173,25 +186,34 @@ export async function initViewer() {
     const statusDot = document.getElementById('status-dot');
     const activeCodeDisplay = document.getElementById('active-code');
 
-    btnJoin.onclick = async () => {
-        const code = inputCode.value.trim().toUpperCase();
-        if (code.length !== 6) return alert("6자리 코드를 입력해주세요.");
+    if (btnJoin) {
+        btnJoin.onclick = async () => {
+            const code = inputCode.value.trim().toUpperCase();
+            if (code.length !== 6) return alert("6자리 코드를 입력해주세요.");
 
-        // Check if room exists
-        const snap = await get(ref(db, `rooms/${code}`));
-        if (!snap.exists()) return alert("존재하지 않는 방입니다.");
+            try {
+                const snap = await get(ref(db, `rooms/${code}`));
+                if (!snap.exists()) return alert("⚠️ 존재하지 않는 방 코드입니다.\n코드를 다시 확인해주세요.");
 
-        joinScreen.classList.add('hidden');
-        videoContainer.classList.remove('hidden');
-        activeCodeDisplay.innerText = code;
-        
-        startConnection(code);
-    };
+                joinScreen?.classList.add('hidden');
+                videoContainer?.classList.remove('hidden');
+                if (activeCodeDisplay) activeCodeDisplay.innerText = code;
+                
+                startConnection(code);
+            } catch (err) {
+                console.error('Firebase join error:', err);
+                alert("연결 중 오류가 발생했습니다.");
+            }
+        };
+    }
 
     function startConnection(code) {
         if (peer) peer.destroy();
         
-        peer = new SimplePeer({
+        const Peer = window.SimplePeer;
+        if (!Peer) return;
+
+        peer = new Peer({
             initiator: true,
             trickle: true,
             config: { iceServers: ICE_SERVERS }
@@ -205,22 +227,25 @@ export async function initViewer() {
             }
         });
 
-        // Listen for answer from broadcaster
+        // 방송자의 Answer 수신
         onValue(ref(db, `rooms/${code}/signals/${viewerId}_ans`), snap => {
             const val = snap.val();
             if (val && val.type === 'answer') peer.signal(val);
         });
 
+        // 방송자의 Candidates 수신
         onChildAdded(ref(db, `rooms/${code}/signals/${viewerId}_ans_cand`), snap => {
             const val = snap.val();
             if (val && val.candidate) peer.signal(val);
         });
 
         peer.on('stream', stream => {
-            remoteVideo.srcObject = stream;
-            statusText.innerText = "연결됨 ✓";
-            statusDot.classList.replace('bg-yellow-500', 'bg-emerald-500');
-            statusDot.classList.remove('animate-pulse');
+            if (remoteVideo) remoteVideo.srcObject = stream;
+            if (statusText) statusText.innerText = "연결됨 ✓";
+            if (statusDot) {
+                statusDot.classList.replace('bg-yellow-500', 'bg-emerald-500');
+                statusDot.classList.remove('animate-pulse');
+            }
         });
 
         peer.on('close', () => reconnect(code));
@@ -233,6 +258,8 @@ export async function initViewer() {
             statusDot.classList.replace('bg-emerald-500', 'bg-yellow-500');
             statusDot.classList.add('animate-pulse');
         }
-        setTimeout(() => startConnection(code), 3000);
+        setTimeout(() => {
+            if (document.visibilityState === 'visible') startConnection(code);
+        }, 3000);
     }
 }
