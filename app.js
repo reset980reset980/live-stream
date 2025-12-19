@@ -18,23 +18,27 @@ const db = getDatabase(app);
 const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    // 무료 TURN 서버 - NAT 통과를 위해 필수
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    // Metered 무료 TURN 서버
     {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:global.relay.metered.ca:80',
+        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
+        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
     },
     {
-        urls: 'turn:openrelay.metered.ca:443',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
+        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
     },
     {
-        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-        username: 'openrelayproject',
-        credential: 'openrelayproject'
+        urls: 'turn:global.relay.metered.ca:443',
+        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
+        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
+    },
+    {
+        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
+        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
     }
 ];
 
@@ -258,6 +262,9 @@ export async function initViewer() {
 
         console.log('[Viewer] Starting connection to room:', code, 'viewerId:', viewerId);
 
+        // answer 중복 처리 방지 플래그
+        let answerReceived = false;
+
         peer = new Peer({
             initiator: true,
             trickle: true,
@@ -274,12 +281,18 @@ export async function initViewer() {
             }
         });
 
-        // 방송자의 Answer 수신
-        onValue(ref(db, `rooms/${code}/signals/${viewerId}_ans`), snap => {
+        // 방송자의 Answer 수신 (한 번만 처리)
+        const answerRef = ref(db, `rooms/${code}/signals/${viewerId}_ans`);
+        const unsubscribeAnswer = onValue(answerRef, snap => {
             const val = snap.val();
-            if (val && val.type === 'answer') {
+            if (val && val.type === 'answer' && !answerReceived) {
+                answerReceived = true;
                 console.log('[Viewer] Received answer from broadcaster');
-                peer.signal(val);
+                try {
+                    peer.signal(val);
+                } catch (e) {
+                    console.warn('[Viewer] Error processing answer:', e.message);
+                }
             }
         });
 
@@ -288,7 +301,11 @@ export async function initViewer() {
             const val = snap.val();
             if (val && val.candidate) {
                 console.log('[Viewer] Received broadcaster ICE candidate');
-                peer.signal(val);
+                try {
+                    peer.signal(val);
+                } catch (e) {
+                    console.warn('[Viewer] Error processing ICE candidate:', e.message);
+                }
             }
         });
 
