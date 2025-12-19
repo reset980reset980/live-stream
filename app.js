@@ -16,29 +16,31 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 const ICE_SERVERS = [
+    // STUN 서버
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    // Metered 무료 TURN 서버
+    { urls: 'stun:stun2.l.google.com:19302' },
+    // 무료 TURN 서버 (ExpressTurn)
     {
-        urls: 'turn:global.relay.metered.ca:80',
-        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
-        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
+        urls: 'turn:relay1.expressturn.com:3478',
+        username: 'efQKVE7I0KVUYLQN3X',
+        credential: 'oFqXVZyJMvZsLsRV'
+    },
+    // 대체 TURN (OpenRelay)
+    {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
     },
     {
-        urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
-        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
     },
     {
-        urls: 'turn:global.relay.metered.ca:443',
-        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
-        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
-    },
-    {
-        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-        username: 'e7e5e8c1f0f3a5b6c7d8e9f0',
-        credential: 'e7e5e8c1f0f3a5b6c7d8e9f0'
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
     }
 ];
 
