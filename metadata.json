@@ -1,0 +1,8 @@
+{
+  "name": "졸업식 라이브 중계",
+  "description": "갤럭시 폰을 활용한 실시간 졸업식 중계 시스템 (WebRTC/Firebase)",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

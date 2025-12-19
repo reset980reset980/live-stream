@@ -1,11 +1,25 @@
-<div align="center">
+# 🎓 졸업식 라이브 방송 사용 가이드
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+본 웹앱은 갤럭시 스마트폰을 활용하여 졸업식 현장을 촬영하고, 교실 PC로 실시간 중계하기 위해 제작되었습니다.
 
-  <h1>Built with AI Studio</h2>
+## 🚀 배포 방법
+1. 본 폴더의 모든 파일을 준비합니다.
+2. Vercel(vercel.com)에 드래그 앤 드롭하여 배포합니다.
+3. 배포된 `https://` URL을 확인합니다. (카메라 사용을 위해 HTTPS 필수)
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 📹 방송자 (갤럭시 폰)
+1. 크롬(Chrome) 브라우저로 배포된 URL 접속.
+2. **"Start Broadcast"** 버튼 클릭.
+3. 카메라 및 마이크 권한 **'허용'**.
+4. 생성된 6자리 코드(예: `GRAD24`)를 시청 측에 전달.
+5. **"방송 시작"** 버튼을 눌러 LIVE 상태로 전환.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 📺 시청자 (교실 PC)
+1. 동일한 URL 접속 후 **"Join Stream"** 클릭.
+2. 전달받은 6자리 코드 입력 후 **"연결하기"** 클릭.
+3. 전체화면 아이콘을 눌러 큰 화면으로 시청.
 
-</div>
+## ⚠️ 주의사항
+- **네트워크**: 방송자와 시청자 모두 안정적인 WiFi(또는 5G) 환경이 필요합니다.
+- **배터리**: 방송용 스마트폰은 충전기를 연결한 상태로 사용하시기 바랍니다.
+- **테스트**: 본 행사 30분 전에 반드시 전체 연결 리허설을 진행하세요.
