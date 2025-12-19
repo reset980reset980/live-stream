@@ -99,13 +99,13 @@ export async function initBroadcaster() {
 
                 const data = snapshot.val();
                 if (data.type === 'offer') {
-                    handleOffer(viewerId, data.sdp);
+                    handleOffer(viewerId, data);
                 } else if (data.type === 'candidate' && peers[viewerId]) {
                     peers[viewerId].signal(data);
                 }
             });
 
-            function handleOffer(viewerId, sdp) {
+            function handleOffer(viewerId, offerData) {
                 // CDN으로 로드된 SimplePeer 전역 객체 사용
                 const Peer = window.SimplePeer;
                 if (!Peer) {
@@ -144,8 +144,9 @@ export async function initBroadcaster() {
                     updateViewerCount();
                 });
 
-                p.signal({ type: 'offer', sdp: sdp });
-                
+                // 완전한 offer 객체를 signal로 전달
+                p.signal(offerData);
+
                 // 시청자의 ICE candidates 처리
                 onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}`), s => {
                     const val = s.val();
