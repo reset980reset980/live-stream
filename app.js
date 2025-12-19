@@ -52,7 +52,7 @@ export async function initBroadcaster() {
     const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     let roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
     let peer = null;
-    let connections = {};
+    let calls = {};
     let currentFacingMode = 'environment';
     let wakeLock = null;
 
@@ -130,25 +130,41 @@ export async function initBroadcaster() {
                 onDisconnect(roomRef).remove();
             });
 
-            peer.on('call', (call) => {
-                console.log('[Broadcaster] Incoming call from:', call.peer);
+            // 시청자가 데이터 연결로 접속하면, 방송자가 call을 시작
+            peer.on('connection', (conn) => {
+                console.log('[Broadcaster] Viewer connected:', conn.peer);
 
-                // 시청자에게 스트림 전송
-                call.answer(localStream);
+                conn.on('open', () => {
+                    console.log('[Broadcaster] Data connection opened, calling viewer with stream');
 
-                connections[call.peer] = call;
-                updateViewerCount();
+                    // 방송자가 시청자에게 call을 시작 (스트림 전송)
+                    const call = peer.call(conn.peer, localStream);
 
-                call.on('close', () => {
-                    console.log('[Broadcaster] Call closed:', call.peer);
-                    delete connections[call.peer];
-                    updateViewerCount();
+                    if (call) {
+                        calls[conn.peer] = call;
+                        updateViewerCount();
+
+                        call.on('close', () => {
+                            console.log('[Broadcaster] Call closed:', conn.peer);
+                            delete calls[conn.peer];
+                            updateViewerCount();
+                        });
+
+                        call.on('error', (err) => {
+                            console.error('[Broadcaster] Call error:', err);
+                            delete calls[conn.peer];
+                            updateViewerCount();
+                        });
+                    }
                 });
 
-                call.on('error', (err) => {
-                    console.error('[Broadcaster] Call error:', err);
-                    delete connections[call.peer];
-                    updateViewerCount();
+                conn.on('close', () => {
+                    console.log('[Broadcaster] Data connection closed:', conn.peer);
+                    if (calls[conn.peer]) {
+                        calls[conn.peer].close();
+                        delete calls[conn.peer];
+                        updateViewerCount();
+                    }
                 });
             });
 
@@ -159,7 +175,7 @@ export async function initBroadcaster() {
     }
 
     function updateViewerCount() {
-        const count = Object.keys(connections).length;
+        const count = Object.keys(calls).length;
         if (viewerCountDisplay) {
             viewerCountDisplay.innerText = `${count}명 시청 중`;
         }
@@ -180,7 +196,7 @@ export async function initBroadcaster() {
 // --- 시청자(Viewer) 로직 ---
 export async function initViewer() {
     let peer = null;
-    let currentCall = null;
+    let dataConn = null;
 
     const joinScreen = document.getElementById('join-screen');
     const videoContainer = document.getElementById('video-container');
@@ -222,7 +238,7 @@ export async function initViewer() {
 
     function connectToStream(broadcasterPeerId, code) {
         // 기존 연결 정리
-        if (currentCall) currentCall.close();
+        if (dataConn) dataConn.close();
         if (peer) peer.destroy();
 
         console.log('[Viewer] Connecting to broadcaster:', broadcasterPeerId);
@@ -232,16 +248,31 @@ export async function initViewer() {
         peer.on('open', (id) => {
             console.log('[Viewer] PeerJS connected with ID:', id);
 
-            // 방송자에게 전화 걸기
-            const call = peer.call(broadcasterPeerId, null); // null = 오디오/비디오 없이 받기만
+            // 방송자에게 데이터 연결 요청 (call 대신)
+            dataConn = peer.connect(broadcasterPeerId);
 
-            if (!call) {
-                console.error('[Viewer] Failed to create call');
-                if (statusText) statusText.innerText = "연결 실패";
-                return;
-            }
+            dataConn.on('open', () => {
+                console.log('[Viewer] Data connection opened, waiting for stream...');
+                if (statusText) statusText.innerText = "스트림 대기 중...";
+            });
 
-            currentCall = call;
+            dataConn.on('error', (err) => {
+                console.error('[Viewer] Data connection error:', err);
+                reconnect(broadcasterPeerId, code);
+            });
+
+            dataConn.on('close', () => {
+                console.log('[Viewer] Data connection closed');
+                reconnect(broadcasterPeerId, code);
+            });
+        });
+
+        // 방송자가 call을 시작하면 받기
+        peer.on('call', (call) => {
+            console.log('[Viewer] Incoming call from broadcaster');
+
+            // 스트림 없이 answer (수신만)
+            call.answer();
 
             call.on('stream', (stream) => {
                 console.log('[Viewer] ✅ Stream received!');
