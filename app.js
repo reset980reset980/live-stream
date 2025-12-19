@@ -60,11 +60,11 @@ export async function initBroadcaster() {
                 localStream.getTracks().forEach(t => t.stop());
             }
             localStream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: facingMode, 
-                    width: { ideal: 1280 }, 
+                video: {
+                    facingMode: facingMode,
+                    width: { ideal: 1280 },
                     height: { ideal: 720 },
-                    frameRate: { max: 24 } 
+                    frameRate: { max: 24 }
                 },
                 audio: true
             });
@@ -97,9 +97,9 @@ export async function initBroadcaster() {
 
             // 화면 꺼짐 방지 (Wake Lock)
             if ('wakeLock' in navigator) {
-                try { 
-                    wakeLock = await navigator.wakeLock.request('screen'); 
-                } catch(e) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch (e) {
                     console.warn('WakeLock failed', e);
                 }
             }
@@ -111,15 +111,25 @@ export async function initBroadcaster() {
 
             // 시청자 연결 신호 감지
             const signalsRef = ref(db, `rooms/${roomCode}/signals`);
+            console.log('[Broadcaster] Listening for signals at:', `rooms/${roomCode}/signals`);
+
             onChildAdded(signalsRef, (snapshot) => {
                 const viewerId = snapshot.key;
-                // answer와 candidate 경로는 무시
-                if (!viewerId || viewerId.endsWith('_ans') || viewerId.endsWith('_cand')) return;
-
                 const data = snapshot.val();
-                if (data.type === 'offer') {
-                    console.log('[Broadcaster] Received offer from viewer:', viewerId);
+
+                console.log('[Broadcaster] Signal received - key:', viewerId, 'data:', JSON.stringify(data).substring(0, 100));
+
+                // answer와 candidate 경로는 무시
+                if (!viewerId || viewerId.endsWith('_ans') || viewerId.endsWith('_cand')) {
+                    console.log('[Broadcaster] Ignoring signal (answer/candidate path)');
+                    return;
+                }
+
+                if (data && data.type === 'offer' && data.sdp) {
+                    console.log('[Broadcaster] ✅ Valid offer received from viewer:', viewerId);
                     handleOffer(viewerId, data);
+                } else {
+                    console.log('[Broadcaster] ⚠️ Invalid offer data:', data);
                 }
             });
 
@@ -204,7 +214,7 @@ export async function initBroadcaster() {
 export async function initViewer() {
     let peer = null;
     const viewerId = 'v_' + Math.random().toString(36).substring(7);
-    
+
     const joinScreen = document.getElementById('join-screen');
     const videoContainer = document.getElementById('video-container');
     const inputCode = document.getElementById('input-code');
@@ -226,7 +236,7 @@ export async function initViewer() {
                 joinScreen?.classList.add('hidden');
                 videoContainer?.classList.remove('hidden');
                 if (activeCodeDisplay) activeCodeDisplay.innerText = code;
-                
+
                 startConnection(code);
             } catch (err) {
                 console.error('Firebase join error:', err);
@@ -237,9 +247,14 @@ export async function initViewer() {
 
     function startConnection(code) {
         if (peer) peer.destroy();
-        
+
         const Peer = window.SimplePeer;
-        if (!Peer) return;
+        if (!Peer) {
+            console.error('[Viewer] SimplePeer not loaded!');
+            return;
+        }
+
+        console.log('[Viewer] Starting connection to room:', code, 'viewerId:', viewerId);
 
         peer = new Peer({
             initiator: true,
