@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue, get, serverTimestamp, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { Peer } from 'peerjs';
 
 // Firebase 설정
 const firebaseConfig = {
@@ -114,13 +115,6 @@ export async function initBroadcaster() {
             }
 
             // PeerJS 초기화 - 방송자 ID로 roomCode 사용
-            const Peer = window.Peer;
-            if (!Peer) {
-                console.error('[Broadcaster] PeerJS not loaded!');
-                alert('PeerJS 로드 실패. 페이지를 새로고침해주세요.');
-                return;
-            }
-
             peer = new Peer('broadcaster_' + roomCode, PEER_CONFIG);
 
             peer.on('open', (id) => {
@@ -227,12 +221,6 @@ export async function initViewer() {
     }
 
     function connectToStream(broadcasterPeerId, code) {
-        const Peer = window.Peer;
-        if (!Peer) {
-            console.error('[Viewer] PeerJS not loaded!');
-            return;
-        }
-
         // 기존 연결 정리
         if (currentCall) currentCall.close();
         if (peer) peer.destroy();
