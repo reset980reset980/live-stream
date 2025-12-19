@@ -41,7 +41,9 @@ const ICE_SERVERS = [
 // --- 방송자(Broadcaster) 로직 ---
 export async function initBroadcaster() {
     let localStream = null;
-    let roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // 혼동되는 문자 제외 (0, O, I, l, 1)
+    const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    let roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
     let peers = {}; // viewerId -> SimplePeer
     let currentFacingMode = 'environment';
     let wakeLock = null;
