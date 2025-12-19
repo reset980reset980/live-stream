@@ -95,13 +95,12 @@ export async function initBroadcaster() {
             const signalsRef = ref(db, `rooms/${roomCode}/signals`);
             onChildAdded(signalsRef, (snapshot) => {
                 const viewerId = snapshot.key;
-                if (!viewerId || viewerId.endsWith('_ans')) return; 
+                // answer와 candidate 경로는 무시
+                if (!viewerId || viewerId.endsWith('_ans') || viewerId.endsWith('_cand')) return;
 
                 const data = snapshot.val();
                 if (data.type === 'offer') {
                     handleOffer(viewerId, data);
-                } else if (data.type === 'candidate' && peers[viewerId]) {
-                    peers[viewerId].signal(data);
                 }
             });
 
@@ -148,7 +147,7 @@ export async function initBroadcaster() {
                 p.signal(offerData);
 
                 // 시청자의 ICE candidates 처리
-                onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}`), s => {
+                onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}_cand`), s => {
                     const val = s.val();
                     if (val && val.candidate) p.signal(val);
                 });
@@ -224,7 +223,7 @@ export async function initViewer() {
             if (signal.type === 'offer') {
                 set(ref(db, `rooms/${code}/signals/${viewerId}`), signal);
             } else if (signal.candidate) {
-                push(ref(db, `rooms/${code}/signals/${viewerId}`), signal);
+                push(ref(db, `rooms/${code}/signals/${viewerId}_cand`), signal);
             }
         });
 
