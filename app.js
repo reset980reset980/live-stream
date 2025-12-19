@@ -100,6 +100,7 @@ export async function initBroadcaster() {
 
                 const data = snapshot.val();
                 if (data.type === 'offer') {
+                    console.log('[Broadcaster] Received offer from viewer:', viewerId);
                     handleOffer(viewerId, data);
                 }
             });
@@ -108,10 +109,11 @@ export async function initBroadcaster() {
                 // CDN으로 로드된 SimplePeer 전역 객체 사용
                 const Peer = window.SimplePeer;
                 if (!Peer) {
-                    console.error('SimplePeer is not loaded');
+                    console.error('[Broadcaster] SimplePeer is not loaded');
                     return;
                 }
 
+                console.log('[Broadcaster] Creating peer for viewer:', viewerId);
                 const p = new Peer({
                     initiator: false,
                     stream: localStream,
@@ -121,35 +123,43 @@ export async function initBroadcaster() {
 
                 p.on('signal', signal => {
                     if (signal.type === 'answer') {
+                        console.log('[Broadcaster] Sending answer to viewer');
                         set(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans`), signal);
                     } else if (signal.candidate) {
+                        console.log('[Broadcaster] Sending ICE candidate');
                         push(ref(db, `rooms/${roomCode}/signals/${viewerId}_ans_cand`), signal);
                     }
                 });
 
                 p.on('connect', () => {
+                    console.log('[Broadcaster] ✅ Viewer connected!');
                     peers[viewerId] = p;
                     updateViewerCount();
                 });
 
                 p.on('close', () => {
+                    console.log('[Broadcaster] Viewer disconnected');
                     delete peers[viewerId];
                     updateViewerCount();
                 });
 
                 p.on('error', (err) => {
-                    console.error('Peer error:', err);
+                    console.error('[Broadcaster] Peer error:', err);
                     delete peers[viewerId];
                     updateViewerCount();
                 });
 
                 // 완전한 offer 객체를 signal로 전달
+                console.log('[Broadcaster] Processing offer');
                 p.signal(offerData);
 
                 // 시청자의 ICE candidates 처리
                 onChildAdded(ref(db, `rooms/${roomCode}/signals/${viewerId}_cand`), s => {
                     const val = s.val();
-                    if (val && val.candidate) p.signal(val);
+                    if (val && val.candidate) {
+                        console.log('[Broadcaster] Received viewer ICE candidate');
+                        p.signal(val);
+                    }
                 });
             }
         };
@@ -221,8 +231,10 @@ export async function initViewer() {
 
         peer.on('signal', signal => {
             if (signal.type === 'offer') {
+                console.log('[Viewer] Sending offer to broadcaster');
                 set(ref(db, `rooms/${code}/signals/${viewerId}`), signal);
             } else if (signal.candidate) {
+                console.log('[Viewer] Sending ICE candidate');
                 push(ref(db, `rooms/${code}/signals/${viewerId}_cand`), signal);
             }
         });
@@ -230,16 +242,23 @@ export async function initViewer() {
         // 방송자의 Answer 수신
         onValue(ref(db, `rooms/${code}/signals/${viewerId}_ans`), snap => {
             const val = snap.val();
-            if (val && val.type === 'answer') peer.signal(val);
+            if (val && val.type === 'answer') {
+                console.log('[Viewer] Received answer from broadcaster');
+                peer.signal(val);
+            }
         });
 
         // 방송자의 Candidates 수신
         onChildAdded(ref(db, `rooms/${code}/signals/${viewerId}_ans_cand`), snap => {
             const val = snap.val();
-            if (val && val.candidate) peer.signal(val);
+            if (val && val.candidate) {
+                console.log('[Viewer] Received broadcaster ICE candidate');
+                peer.signal(val);
+            }
         });
 
         peer.on('stream', stream => {
+            console.log('[Viewer] ✅ Stream received!');
             if (remoteVideo) remoteVideo.srcObject = stream;
             if (statusText) statusText.innerText = "연결됨 ✓";
             if (statusDot) {
@@ -248,8 +267,19 @@ export async function initViewer() {
             }
         });
 
-        peer.on('close', () => reconnect(code));
-        peer.on('error', () => reconnect(code));
+        peer.on('connect', () => {
+            console.log('[Viewer] ✅ Peer connected!');
+        });
+
+        peer.on('close', () => {
+            console.log('[Viewer] Connection closed');
+            reconnect(code);
+        });
+
+        peer.on('error', (err) => {
+            console.error('[Viewer] Peer error:', err);
+            reconnect(code);
+        });
     }
 
     function reconnect(code) {
