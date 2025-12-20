@@ -235,10 +235,42 @@ export async function initBroadcaster() {
 
     await startMedia(currentFacingMode);
 
+    // 카메라 전환 시 기존 연결에 새 스트림 적용
+    async function replaceStreamInCalls() {
+        if (!localStream) return;
+
+        const videoTrack = localStream.getVideoTracks()[0];
+        const audioTrack = localStream.getAudioTracks()[0];
+
+        // 모든 활성 연결의 스트림 교체
+        Object.values(calls).forEach(call => {
+            try {
+                const pc = call.peerConnection;
+                if (pc) {
+                    const senders = pc.getSenders();
+                    senders.forEach(sender => {
+                        if (sender.track?.kind === 'video' && videoTrack) {
+                            sender.replaceTrack(videoTrack);
+                            console.log('[Broadcaster] Video track replaced');
+                        }
+                        if (sender.track?.kind === 'audio' && audioTrack) {
+                            sender.replaceTrack(audioTrack);
+                            console.log('[Broadcaster] Audio track replaced');
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('[Broadcaster] Track replace error:', err);
+            }
+        });
+    }
+
     if (btnFlip) {
-        btnFlip.onclick = () => {
+        btnFlip.onclick = async () => {
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            startMedia(currentFacingMode);
+            await startMedia(currentFacingMode);
+            // 기존 연결에 새 스트림 적용
+            await replaceStreamInCalls();
         };
     }
 
