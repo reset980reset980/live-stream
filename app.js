@@ -43,6 +43,18 @@ const PEER_CONFIG = {
                 credential: "OOX5V5soJNeowzGU",
             },
         ]
+    },
+    // 비디오 품질 향상을 위한 SDP 변환
+    sdpTransform: (sdp) => {
+        // 비트레이트를 2.5Mbps로 설정 (기본값보다 높음)
+        let modifiedSdp = sdp.replace(/b=AS:\d+/g, 'b=AS:2500');
+        // video 라인이 있으면 비트레이트 추가
+        if (modifiedSdp.indexOf('b=AS:') === -1) {
+            modifiedSdp = modifiedSdp.replace(/m=video.*\r\n/g, (match) => {
+                return match + 'b=AS:2500\r\n';
+            });
+        }
+        return modifiedSdp;
     }
 };
 
