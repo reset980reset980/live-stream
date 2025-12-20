@@ -80,11 +80,15 @@ export async function initBroadcaster() {
             localStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: facingMode,
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { max: 24 }
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 }
                 },
-                audio: true
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
             });
             if (preview) preview.srcObject = localStream;
             document.getElementById('setup-message')?.classList.add('hidden');

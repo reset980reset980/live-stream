@@ -42,6 +42,13 @@
                                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                     </button>
+                    <button id="btn-fullscreen"
+                        class="bg-black/50 backdrop-blur-xl p-3 rounded-full border border-white/10 text-white active:scale-90 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                    </button>
                     <div id="live-indicator"
                         class="hidden bg-red-600 px-4 py-2 rounded-full text-xs font-black animate-pulse flex items-center space-x-2 shadow-lg shadow-red-600/30">
                         <div class="w-2 h-2 bg-white rounded-full"></div>
@@ -69,15 +76,15 @@
                     </div>
 
                     <button id="btn-start"
-                        class="hidden w-full py-6 bg-indigo-600 hover:bg-indigo-700 rounded-3xl font-black text-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center space-x-4">
-                        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                        class="hidden w-full py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl font-bold text-lg shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-3">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />
                         </svg>
                         <span>방송 시작</span>
                     </button>
 
                     <button id="btn-stop"
-                        class="hidden w-full py-5 bg-red-600/80 backdrop-blur-md border border-red-500/50 rounded-3xl font-bold text-lg shadow-xl active:scale-95">
+                        class="hidden w-full py-3 bg-red-600/80 backdrop-blur-md border border-red-500/50 rounded-2xl font-bold text-base shadow-xl active:scale-95">
                         방송 종료
                     </button>
                 </div>
@@ -115,6 +122,21 @@
         if (preview) {
             preview.addEventListener('click', showUI);
             preview.addEventListener('touchstart', showUI);
+        }
+
+        // 전체화면 버튼
+        const btnFullscreen = document.getElementById('btn-fullscreen');
+        if (btnFullscreen) {
+            btnFullscreen.addEventListener('click', () => {
+                const app = document.getElementById('broadcaster-app');
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else if (app.requestFullscreen) {
+                    app.requestFullscreen();
+                } else if (app.webkitRequestFullscreen) {
+                    app.webkitRequestFullscreen();
+                }
+            });
         }
 
         // 방송 시작 시 자동 숨김 활성화 (broadcaster.js에서 호출)
