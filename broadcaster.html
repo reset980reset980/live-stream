@@ -50,9 +50,11 @@
             <div class="flex justify-between items-start">
                 <!-- Left: Room Code only (LIVE/REC is outside overlay) -->
                 <div id="room-info" class="hidden">
-                    <div class="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 mt-6">
+                    <div id="code-copy-btn"
+                        class="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 mt-6 cursor-pointer active:scale-95 transition-transform">
                         <span class="text-[10px] text-indigo-400 font-bold">CODE </span>
                         <span id="room-code-display" class="text-sm font-mono font-bold text-white">------</span>
+                        <span id="copy-feedback" class="hidden text-[10px] text-green-400 ml-1">복사됨!</span>
                     </div>
                 </div>
 
@@ -232,6 +234,25 @@
         if (preview) {
             preview.addEventListener('click', showUI);
             preview.addEventListener('touchstart', showUI);
+        }
+
+        // 코드 복사 기능
+        const codeCopyBtn = document.getElementById('code-copy-btn');
+        const copyFeedback = document.getElementById('copy-feedback');
+        if (codeCopyBtn) {
+            codeCopyBtn.addEventListener('click', async () => {
+                const code = document.getElementById('room-code-display')?.innerText;
+                if (code && code !== '------') {
+                    try {
+                        await navigator.clipboard.writeText(code);
+                        copyFeedback?.classList.remove('hidden');
+                        setTimeout(() => copyFeedback?.classList.add('hidden'), 1500);
+                        console.log('[Broadcaster] Code copied:', code);
+                    } catch (err) {
+                        console.error('[Broadcaster] Copy failed:', err);
+                    }
+                }
+            });
         }
 
         // 전체화면 버튼
