@@ -106,6 +106,8 @@ export async function initBroadcaster() {
     const preview = document.getElementById('preview');
     const btnStart = document.getElementById('btn-start');
     const btnStop = document.getElementById('btn-stop');
+    const btnStopTop = document.getElementById('btn-stop-top');
+    const btnBack = document.getElementById('btn-back');
     const btnFlip = document.getElementById('btn-flip');
     const btnMic = document.getElementById('btn-mic');
     const btnRecord = document.getElementById('btn-record');
@@ -293,7 +295,10 @@ export async function initBroadcaster() {
     if (btnStart) {
         btnStart.onclick = async () => {
             btnStart.classList.add('hidden');
+            btnNewBroadcast?.classList.add('hidden');
             btnStop?.classList.remove('hidden');
+            btnStopTop?.classList.remove('hidden');
+            btnBack?.classList.add('hidden');
             document.getElementById('room-info')?.classList.remove('hidden');
             document.getElementById('live-indicator')?.classList.remove('hidden');
             document.getElementById('stats')?.classList.remove('hidden');
@@ -434,6 +439,11 @@ export async function initBroadcaster() {
                 window.location.href = "index.html";
             }
         };
+    }
+
+    // 상단 종료 버튼도 같은 기능
+    if (btnStopTop) {
+        btnStopTop.onclick = () => btnStop?.click();
     }
 }
 
