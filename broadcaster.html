@@ -106,6 +106,19 @@
                             <circle cx="12" cy="12" r="3" fill="currentColor" />
                         </svg>
                     </button>
+                    <button id="btn-lock"
+                        class="bg-black/40 backdrop-blur-md p-2 rounded-full border border-white/10 text-white active:scale-90">
+                        <svg id="lock-icon-unlocked" class="w-5 h-5" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        </svg>
+                        <svg id="lock-icon-locked" class="w-5 h-5 hidden text-yellow-400" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
@@ -157,11 +170,15 @@
         // UI 자동 숨김 기능
         let hideTimeout;
         let isLive = false;
+        let isLocked = false; // 잠금 상태
         const overlay = document.getElementById('ui-overlay');
         const preview = document.getElementById('preview');
+        const btnLock = document.getElementById('btn-lock');
+        const lockIconUnlocked = document.getElementById('lock-icon-unlocked');
+        const lockIconLocked = document.getElementById('lock-icon-locked');
 
         function hideUI() {
-            if (isLive && overlay) {
+            if (isLive && !isLocked && overlay) {
                 overlay.style.opacity = '0';
                 overlay.style.pointerEvents = 'none';
             }
@@ -173,10 +190,34 @@
                 overlay.style.opacity = '1';
                 overlay.style.pointerEvents = 'auto';
 
-                if (isLive) {
+                if (isLive && !isLocked) {
                     hideTimeout = setTimeout(hideUI, 3000);
                 }
             }
+        }
+
+        // 잠금 버튼 토글
+        if (btnLock) {
+            btnLock.addEventListener('click', () => {
+                isLocked = !isLocked;
+                if (isLocked) {
+                    lockIconUnlocked?.classList.add('hidden');
+                    lockIconLocked?.classList.remove('hidden');
+                    btnLock.classList.add('bg-yellow-600/50', 'border-yellow-500/50');
+                    btnLock.classList.remove('bg-black/40', 'border-white/10');
+                    clearTimeout(hideTimeout);
+                    showUI();
+                } else {
+                    lockIconUnlocked?.classList.remove('hidden');
+                    lockIconLocked?.classList.add('hidden');
+                    btnLock.classList.remove('bg-yellow-600/50', 'border-yellow-500/50');
+                    btnLock.classList.add('bg-black/40', 'border-white/10');
+                    if (isLive) {
+                        hideTimeout = setTimeout(hideUI, 3000);
+                    }
+                }
+                console.log('[UI Lock]', isLocked ? 'LOCKED' : 'UNLOCKED');
+            });
         }
 
         // 화면 터치/클릭 시 UI 다시 표시
