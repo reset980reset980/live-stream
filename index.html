@@ -116,7 +116,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhf_58nNbyQAk7nUxOCw5ChACJTRkCO0U",
@@ -135,13 +135,25 @@
         let adminMode = false;
         let currentRooms = null;
 
-        // Ctrl + Shift + A 단축키
+        // Ctrl + Shift + A 단축키 (방송 목록 보기)
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && e.key === 'A') {
                 e.preventDefault();
                 adminMode = !adminMode;
                 updateDisplay();
                 console.log('[Admin Mode]', adminMode ? 'ON' : 'OFF');
+            }
+            // Ctrl + Shift + D 단축키 (모든 방 삭제)
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                if (confirm('⚠️ 모든 방송 데이터를 삭제하시겠습니까?')) {
+                    remove(ref(db, 'rooms')).then(() => {
+                        alert('✅ 모든 방송 데이터가 삭제되었습니다.');
+                        console.log('[Admin] All rooms deleted');
+                    }).catch(err => {
+                        alert('❌ 삭제 실패: ' + err.message);
+                    });
+                }
             }
         });
 
