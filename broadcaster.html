@@ -16,8 +16,8 @@
         <video id="preview" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover"></video>
 
         <!-- UI Overlay -->
-        <div
-            class="relative z-10 flex flex-col justify-between h-full p-6 bg-gradient-to-b from-black/70 via-transparent to-black/70">
+        <div id="ui-overlay"
+            class="relative z-10 flex flex-col justify-between h-full p-6 bg-gradient-to-b from-black/70 via-transparent to-black/70 transition-opacity duration-500">
             <!-- Top Controls -->
             <div class="flex justify-between items-start">
                 <div id="room-info" class="hidden animate-in slide-in-from-top duration-300">
@@ -84,6 +84,52 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // UI 자동 숨김 기능
+        let hideTimeout;
+        let isLive = false;
+        const overlay = document.getElementById('ui-overlay');
+        const preview = document.getElementById('preview');
+
+        function hideUI() {
+            if (isLive && overlay) {
+                overlay.style.opacity = '0';
+                overlay.style.pointerEvents = 'none';
+            }
+        }
+
+        function showUI() {
+            if (overlay) {
+                clearTimeout(hideTimeout);
+                overlay.style.opacity = '1';
+                overlay.style.pointerEvents = 'auto';
+
+                if (isLive) {
+                    hideTimeout = setTimeout(hideUI, 3000);
+                }
+            }
+        }
+
+        // 화면 터치/클릭 시 UI 다시 표시
+        if (preview) {
+            preview.addEventListener('click', showUI);
+            preview.addEventListener('touchstart', showUI);
+        }
+
+        // 방송 시작 시 자동 숨김 활성화 (broadcaster.js에서 호출)
+        window.startUIAutoHide = function() {
+            isLive = true;
+            hideTimeout = setTimeout(hideUI, 3000);
+        };
+
+        // 방송 종료 시 자동 숨김 비활성화
+        window.stopUIAutoHide = function() {
+            isLive = false;
+            clearTimeout(hideTimeout);
+            showUI();
+        };
+    </script>
     <script type="module" src="./broadcaster.js"></script>
 </body>
 

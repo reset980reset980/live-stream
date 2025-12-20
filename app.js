@@ -51,7 +51,14 @@ export async function initBroadcaster() {
     let localStream = null;
     // 혼동되는 문자 제외 (0, O, I, l, 1)
     const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    let roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+
+    // 이전 코드가 있으면 재사용, 없으면 새로 생성
+    let roomCode = localStorage.getItem('lastRoomCode');
+    if (!roomCode) {
+        roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+        localStorage.setItem('lastRoomCode', roomCode);
+    }
+
     let peer = null;
     let calls = {};
     let currentFacingMode = 'environment';
@@ -129,6 +136,11 @@ export async function initBroadcaster() {
                     createdAt: serverTimestamp()
                 });
                 onDisconnect(roomRef).remove();
+
+                // UI 자동 숨김 활성화
+                if (window.startUIAutoHide) {
+                    window.startUIAutoHide();
+                }
             });
 
             // 시청자가 데이터 연결로 접속하면, 방송자가 call을 시작
@@ -213,27 +225,45 @@ export async function initViewer() {
             const code = inputCode.value.trim().toUpperCase();
             if (code.length !== 6) return alert("6자리 코드를 입력해주세요.");
 
-            try {
-                // Firebase에서 방 정보 확인
-                const snap = await get(ref(db, `rooms/${code}`));
-                if (!snap.exists()) return alert("⚠️ 존재하지 않는 방 코드입니다.\n코드를 다시 확인해주세요.");
+            // 재시도 로직 추가
+            let retries = 0;
+            const maxRetries = 5;
 
-                const roomData = snap.val();
-                const broadcasterPeerId = roomData.peerId;
+            async function tryConnect() {
+                try {
+                    // Firebase에서 방 정보 확인
+                    const snap = await get(ref(db, `rooms/${code}`));
 
-                if (!broadcasterPeerId) {
-                    return alert("⚠️ 방송자가 연결되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                    if (!snap.exists()) {
+                        retries++;
+                        if (retries <= maxRetries) {
+                            if (statusText) statusText.innerText = `방송자 연결 대기 중... (${retries}/${maxRetries})`;
+                            setTimeout(tryConnect, 3000);
+                            return;
+                        }
+                        return alert("⚠️ 방송이 시작되지 않았거나 종료되었습니다.\n코드를 다시 확인해주세요.");
+                    }
+
+                    const roomData = snap.val();
+                    const broadcasterPeerId = roomData.peerId;
+
+                    if (!broadcasterPeerId) {
+                        return alert("⚠️ 방송자가 연결되지 않았습니다. 잠시 후 다시 시도해주세요.");
+                    }
+
+                    if (activeCodeDisplay) activeCodeDisplay.innerText = code;
+                    connectToStream(broadcasterPeerId, code);
+                } catch (err) {
+                    console.error('Firebase join error:', err);
+                    alert("연결 중 오류가 발생했습니다.");
                 }
-
-                joinScreen?.classList.add('hidden');
-                videoContainer?.classList.remove('hidden');
-                if (activeCodeDisplay) activeCodeDisplay.innerText = code;
-
-                connectToStream(broadcasterPeerId, code);
-            } catch (err) {
-                console.error('Firebase join error:', err);
-                alert("연결 중 오류가 발생했습니다.");
             }
+
+            // 첫 연결 시도 전에 UI 표시
+            joinScreen?.classList.add('hidden');
+            videoContainer?.classList.remove('hidden');
+
+            tryConnect();
         };
     }
 
