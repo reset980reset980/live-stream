@@ -59,7 +59,7 @@
 
             <!-- Bottom Controls -->
             <div class="w-full max-w-sm mx-auto space-y-6">
-                <div id="stats" class="hidden flex justify-center space-x-4">
+                <div id="stats" class="hidden flex flex-col items-center space-y-2">
                     <div
                         class="bg-black/40 backdrop-blur-md px-5 py-2 rounded-full text-sm font-bold border border-white/10 flex items-center space-x-2">
                         <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,6 +67,10 @@
                                 d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         <span id="viewer-count">0명 시청 중</span>
+                    </div>
+                    <div id="quality-info"
+                        class="bg-black/40 backdrop-blur-md px-4 py-1 rounded-full text-xs font-mono border border-white/10 text-slate-300">
+                        화질: 확인 중...
                     </div>
                 </div>
 

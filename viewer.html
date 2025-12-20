@@ -57,11 +57,17 @@
             <!-- Connection Status -->
             <div id="status-overlay"
                 class="absolute top-6 left-6 right-6 flex justify-between items-start pointer-events-none">
-                <div
-                    class="bg-black/50 backdrop-blur-xl px-5 py-2 rounded-full border border-white/10 flex items-center space-x-3">
-                    <div id="status-dot" class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                    <span id="status-text" class="text-xs font-black uppercase tracking-widest">연결 중...</span>
-                    <span id="active-code" class="text-xs font-mono font-bold text-indigo-300 opacity-60">------</span>
+                <div class="flex flex-col space-y-2">
+                    <div
+                        class="bg-black/50 backdrop-blur-xl px-5 py-2 rounded-full border border-white/10 flex items-center space-x-3">
+                        <div id="status-dot" class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span id="status-text" class="text-xs font-black uppercase tracking-widest">연결 중...</span>
+                        <span id="active-code" class="text-xs font-mono font-bold text-indigo-300 opacity-60">------</span>
+                    </div>
+                    <div id="viewer-quality-info"
+                        class="bg-black/50 backdrop-blur-xl px-4 py-1 rounded-full border border-white/10 text-xs font-mono text-slate-300 hidden">
+                        수신 화질: 확인 중...
+                    </div>
                 </div>
 
                 <div class="flex space-x-2">

@@ -93,6 +93,12 @@ export async function initBroadcaster() {
             if (preview) preview.srcObject = localStream;
             document.getElementById('setup-message')?.classList.add('hidden');
             btnStart?.classList.remove('hidden');
+
+            // 화질 정보 표시
+            const videoTrack = localStream.getVideoTracks()[0];
+            const settings = videoTrack.getSettings();
+            console.log('Video settings:', settings);
+            window.currentVideoSettings = settings;
         } catch (err) {
             console.error('Camera access error:', err);
             alert("⚠️ 카메라 접근에 실패했습니다.\n\n해결방법:\n1. 브라우저 설정에서 카메라 권한 허용\n2. HTTPS 환경인지 확인");
@@ -144,6 +150,15 @@ export async function initBroadcaster() {
                 // UI 자동 숨김 활성화
                 if (window.startUIAutoHide) {
                     window.startUIAutoHide();
+                }
+
+                // 화질 정보 업데이트
+                if (localStream && window.currentVideoSettings) {
+                    const s = window.currentVideoSettings;
+                    const qualityInfo = document.getElementById('quality-info');
+                    if (qualityInfo) {
+                        qualityInfo.textContent = `${s.width}x${s.height} @ ${s.frameRate}fps`;
+                    }
                 }
             });
 
@@ -319,6 +334,18 @@ export async function initViewer() {
                 if (statusDot) {
                     statusDot.classList.remove('bg-yellow-500', 'animate-pulse');
                     statusDot.classList.add('bg-emerald-500');
+                }
+
+                // 수신 화질 정보 표시
+                const videoTrack = stream.getVideoTracks()[0];
+                if (videoTrack) {
+                    const settings = videoTrack.getSettings();
+                    console.log('[Viewer] Video settings:', settings);
+                    const qualityInfo = document.getElementById('viewer-quality-info');
+                    if (qualityInfo) {
+                        qualityInfo.textContent = `수신: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`;
+                        qualityInfo.classList.remove('hidden');
+                    }
                 }
             });
 
