@@ -15,6 +15,20 @@
         <!-- Video Preview -->
         <video id="preview" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover"></video>
 
+        <!-- Always Visible: LIVE & REC indicators -->
+        <div id="persistent-status" class="absolute top-3 left-3 z-30 flex space-x-1">
+            <div id="live-indicator"
+                class="hidden bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse flex items-center space-x-1 shadow-lg">
+                <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                <span>LIVE</span>
+            </div>
+            <div id="record-indicator"
+                class="hidden bg-orange-600 px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1 shadow-lg">
+                <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                <span id="record-time">REC</span>
+            </div>
+        </div>
+
         <!-- UI Overlay -->
         <div id="ui-overlay"
             class="relative z-10 flex flex-col justify-between h-full p-4 bg-gradient-to-b from-black/60 via-transparent to-black/60 transition-opacity duration-500">
@@ -34,25 +48,11 @@
 
             <!-- Top Bar -->
             <div class="flex justify-between items-start">
-                <!-- Left: Room Code & Status -->
-                <div class="flex flex-col space-y-1">
-                    <div id="room-info" class="hidden">
-                        <div class="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10">
-                            <span class="text-[10px] text-indigo-400 font-bold">CODE </span>
-                            <span id="room-code-display" class="text-sm font-mono font-bold text-white">------</span>
-                        </div>
-                    </div>
-                    <div class="flex space-x-1">
-                        <div id="live-indicator"
-                            class="hidden bg-red-600 px-2 py-0.5 rounded text-[10px] font-bold animate-pulse flex items-center space-x-1">
-                            <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-                            <span>LIVE</span>
-                        </div>
-                        <div id="record-indicator"
-                            class="hidden bg-orange-600 px-2 py-0.5 rounded text-[10px] font-bold flex items-center space-x-1">
-                            <div class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                            <span id="record-time">REC</span>
-                        </div>
+                <!-- Left: Room Code only (LIVE/REC is outside overlay) -->
+                <div id="room-info" class="hidden">
+                    <div class="bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 mt-6">
+                        <span class="text-[10px] text-indigo-400 font-bold">CODE </span>
+                        <span id="room-code-display" class="text-sm font-mono font-bold text-white">------</span>
                     </div>
                 </div>
 
