@@ -107,9 +107,89 @@ export async function initBroadcaster() {
     const btnStart = document.getElementById('btn-start');
     const btnStop = document.getElementById('btn-stop');
     const btnFlip = document.getElementById('btn-flip');
+    const btnMic = document.getElementById('btn-mic');
+    const btnRecord = document.getElementById('btn-record');
     const btnNewBroadcast = document.getElementById('btn-new-broadcast');
     const roomCodeDisplay = document.getElementById('room-code-display');
     const viewerCountDisplay = document.getElementById('viewer-count');
+
+    let micEnabled = true;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordingStartTime = null;
+    let recordingTimer = null;
+
+    // 녹화 시작 함수
+    function startRecording() {
+        if (!localStream) return;
+
+        try {
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(localStream, {
+                mimeType: 'video/webm;codecs=vp9,opus'
+            });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `졸업식_${new Date().toISOString().slice(0, 10)}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+                console.log('[Recorder] File saved');
+            };
+
+            mediaRecorder.start(1000); // 1초마다 데이터 저장
+            recordingStartTime = Date.now();
+
+            // 녹화 시간 표시
+            const recordIndicator = document.getElementById('record-indicator');
+            const recordTime = document.getElementById('record-time');
+            recordIndicator?.classList.remove('hidden');
+
+            recordingTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const sec = String(elapsed % 60).padStart(2, '0');
+                if (recordTime) recordTime.textContent = `REC ${min}:${sec}`;
+            }, 1000);
+
+            // 버튼 스타일 변경
+            if (btnRecord) {
+                btnRecord.classList.add('bg-red-500/50', 'border-red-500/50');
+                btnRecord.classList.remove('bg-black/50', 'border-white/10');
+            }
+
+            console.log('[Recorder] Recording started');
+        } catch (err) {
+            console.error('[Recorder] Error:', err);
+        }
+    }
+
+    // 녹화 중지 함수
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            clearInterval(recordingTimer);
+
+            const recordIndicator = document.getElementById('record-indicator');
+            recordIndicator?.classList.add('hidden');
+
+            if (btnRecord) {
+                btnRecord.classList.remove('bg-red-500/50', 'border-red-500/50');
+                btnRecord.classList.add('bg-black/50', 'border-white/10');
+            }
+
+            console.log('[Recorder] Recording stopped');
+        }
+    }
 
     // 카메라 시작 함수
     async function startMedia(facingMode) {
@@ -166,6 +246,46 @@ export async function initBroadcaster() {
             if (confirm("🔄 새 코드로 방송을 시작하시겠습니까?\n기존 코드는 더 이상 사용할 수 없습니다.")) {
                 roomCode = generateNewCode();
                 alert(`새 방송 코드: ${roomCode}`);
+            }
+        };
+    }
+
+    // 마이크 ON/OFF 버튼
+    if (btnMic) {
+        btnMic.onclick = () => {
+            if (localStream) {
+                const audioTracks = localStream.getAudioTracks();
+                audioTracks.forEach(track => {
+                    track.enabled = !track.enabled;
+                    micEnabled = track.enabled;
+                });
+
+                // 아이콘 토글
+                const micOn = document.getElementById('mic-icon-on');
+                const micOff = document.getElementById('mic-icon-off');
+                if (micEnabled) {
+                    micOn?.classList.remove('hidden');
+                    micOff?.classList.add('hidden');
+                    btnMic.classList.remove('bg-red-500/50', 'border-red-500/50');
+                    btnMic.classList.add('bg-black/50', 'border-white/10');
+                } else {
+                    micOn?.classList.add('hidden');
+                    micOff?.classList.remove('hidden');
+                    btnMic.classList.add('bg-red-500/50', 'border-red-500/50');
+                    btnMic.classList.remove('bg-black/50', 'border-white/10');
+                }
+                console.log('[Broadcaster] Mic:', micEnabled ? 'ON' : 'OFF');
+            }
+        };
+    }
+
+    // 녹화 버튼 토글
+    if (btnRecord) {
+        btnRecord.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                stopRecording();
+            } else {
+                startRecording();
             }
         };
     }
@@ -302,6 +422,10 @@ export async function initBroadcaster() {
     if (btnStop) {
         btnStop.onclick = () => {
             if (confirm("🔴 방송을 종료하시겠습니까?")) {
+                // 녹화 중이면 중지 및 저장
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    stopRecording();
+                }
                 if (wakeLock) wakeLock.release();
                 if (peer) peer.destroy();
                 remove(ref(db, `rooms/${roomCode}`));

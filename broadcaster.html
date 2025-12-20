@@ -63,10 +63,36 @@
                                 d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                         </svg>
                     </button>
+                    <button id="btn-mic"
+                        class="bg-black/50 backdrop-blur-xl p-3 rounded-full border border-white/10 text-white active:scale-90 transition-transform">
+                        <svg id="mic-icon-on" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                        <svg id="mic-icon-off" class="w-6 h-6 hidden text-red-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                        </svg>
+                    </button>
+                    <button id="btn-record"
+                        class="bg-black/50 backdrop-blur-xl p-3 rounded-full border border-white/10 text-white active:scale-90 transition-transform">
+                        <svg id="record-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke-width="2" />
+                            <circle cx="12" cy="12" r="4" fill="currentColor" />
+                        </svg>
+                    </button>
                     <div id="live-indicator"
                         class="hidden bg-red-600 px-4 py-2 rounded-full text-xs font-black animate-pulse flex items-center space-x-2 shadow-lg shadow-red-600/30">
                         <div class="w-2 h-2 bg-white rounded-full"></div>
                         <span>LIVE</span>
+                    </div>
+                    <div id="record-indicator"
+                        class="hidden bg-orange-600 px-4 py-2 rounded-full text-xs font-black flex items-center space-x-2 shadow-lg shadow-orange-600/30">
+                        <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        <span id="record-time">REC 00:00</span>
                     </div>
                 </div>
             </div>
