@@ -17,30 +17,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// PeerJS ICE 서버 설정 (Metered TURN)
+// PeerJS ICE 서버 설정 (다중 STUN/TURN 서버)
 const PEER_CONFIG = {
     config: {
         iceServers: [
-            { urls: "stun:stun.relay.metered.ca:80" },
+            // Google STUN 서버들
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
+            // OpenRelay 무료 TURN 서버
             {
-                urls: "turn:global.relay.metered.ca:80",
-                username: "a4cb74d3f0c3048c8b567be0",
-                credential: "OOX5V5soJNeowzGU",
+                urls: "turn:openrelay.metered.ca:80",
+                username: "openrelayproject",
+                credential: "openrelayproject",
             },
             {
-                urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                username: "a4cb74d3f0c3048c8b567be0",
-                credential: "OOX5V5soJNeowzGU",
+                urls: "turn:openrelay.metered.ca:443",
+                username: "openrelayproject",
+                credential: "openrelayproject",
             },
             {
-                urls: "turn:global.relay.metered.ca:443",
-                username: "a4cb74d3f0c3048c8b567be0",
-                credential: "OOX5V5soJNeowzGU",
-            },
-            {
-                urls: "turns:global.relay.metered.ca:443?transport=tcp",
-                username: "a4cb74d3f0c3048c8b567be0",
-                credential: "OOX5V5soJNeowzGU",
+                urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                username: "openrelayproject",
+                credential: "openrelayproject",
             },
         ]
     },
