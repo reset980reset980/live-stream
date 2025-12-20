@@ -17,29 +17,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// PeerJS ICE 서버 설정 (다중 STUN/TURN 서버)
+// PeerJS ICE 서버 설정 (개인 TURN 서버)
 const PEER_CONFIG = {
     config: {
         iceServers: [
             // Google STUN 서버들
             { urls: "stun:stun.l.google.com:19302" },
             { urls: "stun:stun1.l.google.com:19302" },
-            { urls: "stun:stun2.l.google.com:19302" },
-            // OpenRelay 무료 TURN 서버
+            // 개인 TURN 서버 (xsw.kr)
             {
-                urls: "turn:openrelay.metered.ca:80",
-                username: "openrelayproject",
-                credential: "openrelayproject",
+                urls: "turn:116.41.203.98:3478",
+                username: "livestream",
+                credential: "graduation2024",
             },
             {
-                urls: "turn:openrelay.metered.ca:443",
-                username: "openrelayproject",
-                credential: "openrelayproject",
-            },
-            {
-                urls: "turn:openrelay.metered.ca:443?transport=tcp",
-                username: "openrelayproject",
-                credential: "openrelayproject",
+                urls: "turn:116.41.203.98:3478?transport=tcp",
+                username: "livestream",
+                credential: "graduation2024",
             },
         ]
     },
