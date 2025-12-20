@@ -18,6 +18,20 @@
         <!-- UI Overlay -->
         <div id="ui-overlay"
             class="relative z-10 flex flex-col justify-between h-full p-6 bg-gradient-to-b from-black/70 via-transparent to-black/70 transition-opacity duration-500">
+
+            <!-- Zoom Slider (Left Side) -->
+            <div id="zoom-container" class="hidden absolute left-4 top-1/2 transform -translate-y-1/2 z-20">
+                <div
+                    class="flex flex-col items-center space-y-2 bg-black/50 backdrop-blur-xl p-3 rounded-3xl border border-white/10">
+                    <span class="text-xs font-bold text-white">+</span>
+                    <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" class="zoom-slider"
+                        orient="vertical"
+                        style="writing-mode: vertical-lr; direction: rtl; width: 30px; height: 150px; accent-color: #6366f1;">
+                    <span class="text-xs font-bold text-white">−</span>
+                    <div id="zoom-value" class="text-xs font-mono text-indigo-400 mt-1">1.0x</div>
+                </div>
+            </div>
+
             <!-- Top Controls -->
             <div class="flex justify-between items-start">
                 <div id="room-info" class="hidden animate-in slide-in-from-top duration-300">
@@ -144,16 +158,63 @@
         }
 
         // 방송 시작 시 자동 숨김 활성화 (broadcaster.js에서 호출)
-        window.startUIAutoHide = function() {
+        window.startUIAutoHide = function () {
             isLive = true;
             hideTimeout = setTimeout(hideUI, 3000);
+            // 줌 컨테이너 표시
+            const zoomContainer = document.getElementById('zoom-container');
+            if (zoomContainer) zoomContainer.classList.remove('hidden');
         };
 
         // 방송 종료 시 자동 숨김 비활성화
-        window.stopUIAutoHide = function() {
+        window.stopUIAutoHide = function () {
             isLive = false;
             clearTimeout(hideTimeout);
             showUI();
+        };
+
+        // 줌 기능
+        window.initZoom = function (videoTrack) {
+            const zoomSlider = document.getElementById('zoom-slider');
+            const zoomValue = document.getElementById('zoom-value');
+            const zoomContainer = document.getElementById('zoom-container');
+
+            if (!zoomSlider || !videoTrack) return;
+
+            const capabilities = videoTrack.getCapabilities();
+            const settings = videoTrack.getSettings();
+
+            console.log('[Zoom] Capabilities:', capabilities);
+
+            // 카메라가 줌을 지원하는지 확인
+            if (capabilities.zoom) {
+                const minZoom = capabilities.zoom.min || 1;
+                const maxZoom = capabilities.zoom.max || 3;
+                const currentZoom = settings.zoom || 1;
+
+                zoomSlider.min = minZoom;
+                zoomSlider.max = maxZoom;
+                zoomSlider.value = currentZoom;
+                zoomValue.textContent = currentZoom.toFixed(1) + 'x';
+
+                console.log('[Zoom] Range:', minZoom, '-', maxZoom);
+
+                zoomSlider.addEventListener('input', async (e) => {
+                    const zoom = parseFloat(e.target.value);
+                    zoomValue.textContent = zoom.toFixed(1) + 'x';
+
+                    try {
+                        await videoTrack.applyConstraints({ advanced: [{ zoom: zoom }] });
+                        console.log('[Zoom] Set to:', zoom);
+                    } catch (err) {
+                        console.error('[Zoom] Error:', err);
+                    }
+                });
+            } else {
+                console.log('[Zoom] Camera does not support zoom');
+                // 줌을 지원하지 않으면 숨김
+                if (zoomContainer) zoomContainer.classList.add('hidden');
+            }
         };
     </script>
     <script type="module" src="./broadcaster.js"></script>

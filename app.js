@@ -122,6 +122,11 @@ export async function initBroadcaster() {
             const settings = videoTrack.getSettings();
             console.log('Video settings:', settings);
             window.currentVideoSettings = settings;
+
+            // 줌 기능 초기화
+            if (window.initZoom) {
+                window.initZoom(videoTrack);
+            }
         } catch (err) {
             console.error('Camera access error:', err);
             alert("⚠️ 카메라 접근에 실패했습니다.\n\n해결방법:\n1. 브라우저 설정에서 카메라 권한 허용\n2. HTTPS 환경인지 확인");
