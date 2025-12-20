@@ -24,7 +24,17 @@
             <p class="text-slate-400 mt-2 font-medium">실시간 저지연 개인 방송 시스템</p>
         </div>
 
-        <!-- Active Broadcasts -->
+        <!-- ON AIR 표시 (방송 중일 때만 보임, 코드는 숨김) -->
+        <div id="on-air-indicator" class="hidden w-full max-w-md">
+            <div
+                class="flex items-center justify-center space-x-3 p-4 bg-red-500/20 border border-red-500/50 rounded-2xl">
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-red-400 font-bold uppercase tracking-widest">ON AIR</span>
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+
+        <!-- Active Broadcasts (Ctrl+Shift+A로만 보임) -->
         <div id="active-broadcasts" class="w-full max-w-md hidden">
             <h4 class="text-xs font-black text-emerald-400 uppercase tracking-[0.2em] mb-4 flex items-center">
                 <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
@@ -121,40 +131,67 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // 관리자 모드 (단축키로 토글)
+        let adminMode = false;
+        let currentRooms = null;
+
+        // Ctrl + Shift + A 단축키
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+                e.preventDefault();
+                adminMode = !adminMode;
+                updateDisplay();
+                console.log('[Admin Mode]', adminMode ? 'ON' : 'OFF');
+            }
+        });
+
+        function updateDisplay() {
+            const container = document.getElementById('active-broadcasts');
+            const list = document.getElementById('broadcast-list');
+            const onAirIndicator = document.getElementById('on-air-indicator');
+
+            // 방송 중인지 확인
+            const hasBroadcast = currentRooms && Object.keys(currentRooms).some(code => currentRooms[code].broadcaster === 'active');
+
+            // ON AIR 표시 (항상 보임)
+            if (hasBroadcast) {
+                onAirIndicator?.classList.remove('hidden');
+            } else {
+                onAirIndicator?.classList.add('hidden');
+            }
+
+            // 방송 목록 (관리자 모드에서만 보임)
+            if (!adminMode || !hasBroadcast) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            list.innerHTML = '';
+
+            Object.keys(currentRooms).forEach(code => {
+                const room = currentRooms[code];
+                if (room.broadcaster === 'active') {
+                    const item = document.createElement('a');
+                    item.href = `viewer.html?code=${code}`;
+                    item.className = 'flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl hover:bg-emerald-500/20 transition-all';
+                    item.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                            <span class="font-mono font-bold text-lg tracking-wider">${code}</span>
+                        </div>
+                        <span class="text-emerald-400 text-sm font-medium">시청하기 →</span>
+                    `;
+                    list.appendChild(item);
+                }
+            });
+        }
+
         // 활성 방송 목록 실시간 감지
         const roomsRef = ref(db, 'rooms');
         onValue(roomsRef, (snapshot) => {
-            const container = document.getElementById('active-broadcasts');
-            const list = document.getElementById('broadcast-list');
-            const rooms = snapshot.val();
-
-            if (rooms && Object.keys(rooms).length > 0) {
-                container.classList.remove('hidden');
-                list.innerHTML = '';
-
-                Object.keys(rooms).forEach(code => {
-                    const room = rooms[code];
-                    if (room.broadcaster === 'active') {
-                        const item = document.createElement('a');
-                        item.href = `viewer.html?code=${code}`;
-                        item.className = 'flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl hover:bg-emerald-500/20 transition-all';
-                        item.innerHTML = `
-                            <div class="flex items-center space-x-3">
-                                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                                <span class="font-mono font-bold text-lg tracking-wider">${code}</span>
-                            </div>
-                            <span class="text-emerald-400 text-sm font-medium">시청하기 →</span>
-                        `;
-                        list.appendChild(item);
-                    }
-                });
-
-                if (list.children.length === 0) {
-                    container.classList.add('hidden');
-                }
-            } else {
-                container.classList.add('hidden');
-            }
+            currentRooms = snapshot.val();
+            updateDisplay();
         });
     </script>
 </body>

@@ -75,12 +75,28 @@ export async function initBroadcaster() {
     // 혼동되는 문자 제외 (0, O, I, l, 1)
     const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-    // 이전 코드가 있으면 재사용, 없으면 새로 생성
-    let roomCode = localStorage.getItem('lastRoomCode');
-    if (!roomCode) {
-        roomCode = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
-        localStorage.setItem('lastRoomCode', roomCode);
+    // 새 코드 생성 함수
+    function generateNewCode() {
+        const code = Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+        sessionStorage.setItem('currentRoomCode', code);
+        return code;
     }
+
+    // 현재 세션의 코드 사용 (없으면 새로 생성)
+    let roomCode = sessionStorage.getItem('currentRoomCode');
+    if (!roomCode) {
+        roomCode = generateNewCode();
+    }
+
+    // "새 방송" 버튼 기능 (전역 함수로 노출)
+    window.startNewBroadcast = function () {
+        roomCode = generateNewCode();
+        if (document.getElementById('room-code-display')) {
+            document.getElementById('room-code-display').innerText = roomCode;
+        }
+        console.log('[Broadcaster] New room code generated:', roomCode);
+        return roomCode;
+    };
 
     let peer = null;
     let calls = {};
@@ -91,6 +107,7 @@ export async function initBroadcaster() {
     const btnStart = document.getElementById('btn-start');
     const btnStop = document.getElementById('btn-stop');
     const btnFlip = document.getElementById('btn-flip');
+    const btnNewBroadcast = document.getElementById('btn-new-broadcast');
     const roomCodeDisplay = document.getElementById('room-code-display');
     const viewerCountDisplay = document.getElementById('viewer-count');
 
@@ -116,6 +133,7 @@ export async function initBroadcaster() {
             if (preview) preview.srcObject = localStream;
             document.getElementById('setup-message')?.classList.add('hidden');
             btnStart?.classList.remove('hidden');
+            btnNewBroadcast?.classList.remove('hidden');
 
             // 화질 정보 표시
             const videoTrack = localStream.getVideoTracks()[0];
@@ -139,6 +157,16 @@ export async function initBroadcaster() {
         btnFlip.onclick = () => {
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             startMedia(currentFacingMode);
+        };
+    }
+
+    // "새 코드로 방송 시작" 버튼
+    if (btnNewBroadcast) {
+        btnNewBroadcast.onclick = () => {
+            if (confirm("🔄 새 코드로 방송을 시작하시겠습니까?\n기존 코드는 더 이상 사용할 수 없습니다.")) {
+                roomCode = generateNewCode();
+                alert(`새 방송 코드: ${roomCode}`);
+            }
         };
     }
 
@@ -277,6 +305,8 @@ export async function initBroadcaster() {
                 if (wakeLock) wakeLock.release();
                 if (peer) peer.destroy();
                 remove(ref(db, `rooms/${roomCode}`));
+                // 세션에서 코드 삭제 (다음 방송 시 새 코드 생성)
+                sessionStorage.removeItem('currentRoomCode');
                 window.location.href = "index.html";
             }
         };
