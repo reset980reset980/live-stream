@@ -46,14 +46,25 @@ const PEER_CONFIG = {
     },
     // 비디오 품질 향상을 위한 SDP 변환
     sdpTransform: (sdp) => {
-        // 비트레이트를 2.5Mbps로 설정 (기본값보다 높음)
-        let modifiedSdp = sdp.replace(/b=AS:\d+/g, 'b=AS:2500');
-        // video 라인이 있으면 비트레이트 추가
+        let modifiedSdp = sdp;
+
+        // 1. 비트레이트를 5Mbps로 상향 (HD 품질)
+        modifiedSdp = modifiedSdp.replace(/b=AS:\d+/g, 'b=AS:5000');
+
+        // 2. video 라인에 비트레이트 추가
         if (modifiedSdp.indexOf('b=AS:') === -1) {
-            modifiedSdp = modifiedSdp.replace(/m=video.*\r\n/g, (match) => {
-                return match + 'b=AS:2500\r\n';
+            modifiedSdp = modifiedSdp.replace(/m=video(.*)\r\n/g, (match) => {
+                return match + 'b=AS:5000\r\n';
             });
         }
+
+        // 3. TIAS (Transport Independent Application Specific) 비트레이트도 설정
+        modifiedSdp = modifiedSdp.replace(/b=TIAS:\d+/g, 'b=TIAS:5000000');
+
+        // 4. degradationPreference 제거 (해상도 유지 우선)
+        modifiedSdp = modifiedSdp.replace(/a=degradation-preference:\w+\r\n/g, '');
+
+        console.log('[SDP] Modified for high quality');
         return modifiedSdp;
     }
 };
@@ -181,8 +192,11 @@ export async function initBroadcaster() {
                 conn.on('open', () => {
                     console.log('[Broadcaster] Data connection opened, calling viewer with stream');
 
-                    // 방송자가 시청자에게 call을 시작 (스트림 전송)
-                    const call = peer.call(conn.peer, localStream);
+                    // 방송자가 시청자에게 call을 시작 (스트림 전송) - 고화질 옵션
+                    const callOptions = {
+                        sdpTransform: PEER_CONFIG.sdpTransform
+                    };
+                    const call = peer.call(conn.peer, localStream, callOptions);
 
                     if (call) {
                         calls[conn.peer] = call;
