@@ -207,6 +207,33 @@ export async function initBroadcaster() {
                         calls[conn.peer] = call;
                         updateViewerCount();
 
+                        // 연결 후 비트레이트 직접 설정 (핵심!)
+                        setTimeout(async () => {
+                            try {
+                                const pc = call.peerConnection;
+                                if (pc) {
+                                    const senders = pc.getSenders();
+                                    for (const sender of senders) {
+                                        if (sender.track && sender.track.kind === 'video') {
+                                            const params = sender.getParameters();
+                                            if (!params.encodings) {
+                                                params.encodings = [{}];
+                                            }
+                                            // 비트레이트 설정: 최소 1Mbps, 최대 8Mbps
+                                            params.encodings[0].maxBitrate = 8000000; // 8 Mbps
+                                            params.encodings[0].minBitrate = 1000000; // 1 Mbps
+                                            // 해상도 유지 우선 (프레임 낮춰도 OK)
+                                            params.degradationPreference = 'maintain-resolution';
+                                            await sender.setParameters(params);
+                                            console.log('[Broadcaster] ✅ High bitrate set: 1-8 Mbps, maintain-resolution');
+                                        }
+                                    }
+                                }
+                            } catch (err) {
+                                console.warn('[Broadcaster] Could not set bitrate:', err);
+                            }
+                        }, 2000); // 연결 안정화 후 2초 뒤 설정
+
                         call.on('close', () => {
                             console.log('[Broadcaster] Call closed:', conn.peer);
                             delete calls[conn.peer];
