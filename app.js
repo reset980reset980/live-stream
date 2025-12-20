@@ -107,6 +107,8 @@ export async function initBroadcaster() {
     const btnNewBroadcast = document.getElementById('btn-new-broadcast');
     const roomCodeDisplay = document.getElementById('room-code-display');
     const viewerCountDisplay = document.getElementById('viewer-count');
+    const customCodeInput = document.getElementById('custom-code-input');
+    const codeInputArea = document.getElementById('code-input-area');
 
     let micEnabled = true;
     let mediaRecorder = null;
@@ -209,6 +211,7 @@ export async function initBroadcaster() {
             document.getElementById('setup-message')?.classList.add('hidden');
             btnStart?.classList.remove('hidden');
             btnNewBroadcast?.classList.remove('hidden');
+            codeInputArea?.classList.remove('hidden');
 
             // 화질 정보 표시
             const videoTrack = localStream.getVideoTracks()[0];
@@ -319,8 +322,16 @@ export async function initBroadcaster() {
 
     if (btnStart) {
         btnStart.onclick = async () => {
+            // 사용자가 코드를 입력했으면 그 코드 사용
+            if (customCodeInput && customCodeInput.value.trim()) {
+                roomCode = customCodeInput.value.trim().toUpperCase();
+                sessionStorage.setItem('currentRoomCode', roomCode);
+                console.log('[Broadcaster] Using custom code:', roomCode);
+            }
+
             btnStart.classList.add('hidden');
             btnNewBroadcast?.classList.add('hidden');
+            codeInputArea?.classList.add('hidden');
             btnStop?.classList.remove('hidden');
             btnStopTop?.classList.remove('hidden');
             btnBack?.classList.add('hidden');
