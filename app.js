@@ -41,23 +41,30 @@ const PEER_CONFIG = {
     sdpTransform: (sdp) => {
         let modifiedSdp = sdp;
 
-        // 1. 비트레이트를 5Mbps로 상향 (HD 품질)
-        modifiedSdp = modifiedSdp.replace(/b=AS:\d+/g, 'b=AS:5000');
-
-        // 2. video 라인에 비트레이트 추가
-        if (modifiedSdp.indexOf('b=AS:') === -1) {
-            modifiedSdp = modifiedSdp.replace(/m=video(.*)\r\n/g, (match) => {
-                return match + 'b=AS:5000\r\n';
-            });
+        // H.264 코덱 우선순위 (화질 핵심)
+        const h264Regex = /a=rtpmap:(\d+) H264\/90000/;
+        const h264Match = modifiedSdp.match(h264Regex);
+        if (h264Match) {
+            const h264PT = h264Match[1];
+            modifiedSdp = modifiedSdp.replace(
+                /m=video (\d+) [A-Z/]+ ([\d ]+)/,
+                (match, port, payloads) => {
+                    const list = payloads.split(' ');
+                    const reordered = [h264PT, ...list.filter(p => p !== h264PT)];
+                    return `m=video ${port} UDP/TLS/RTP/SAVPF ${reordered.join(' ')}`;
+                }
+            );
         }
 
-        // 3. TIAS (Transport Independent Application Specific) 비트레이트도 설정
-        modifiedSdp = modifiedSdp.replace(/b=TIAS:\d+/g, 'b=TIAS:5000000');
-
-        // 4. degradationPreference 제거 (해상도 유지 우선)
+        // 비트레이트 8Mbps
+        modifiedSdp = modifiedSdp.replace(/b=AS:\d+/g, 'b=AS:8000');
+        if (!modifiedSdp.includes('b=AS:')) {
+            modifiedSdp = modifiedSdp.replace(/m=video(.*)\r\n/g, m => m + 'b=AS:8000\r\n');
+        }
+        modifiedSdp = modifiedSdp.replace(/b=TIAS:\d+/g, 'b=TIAS:8000000');
         modifiedSdp = modifiedSdp.replace(/a=degradation-preference:\w+\r\n/g, '');
 
-        console.log('[SDP] Modified for high quality');
+        console.log('[SDP] H.264 + 8Mbps 적용');
         return modifiedSdp;
     }
 };
@@ -208,13 +215,17 @@ export async function initBroadcaster() {
                 }
             });
             if (preview) preview.srcObject = localStream;
+
             document.getElementById('setup-message')?.classList.add('hidden');
             btnStart?.classList.remove('hidden');
             btnNewBroadcast?.classList.remove('hidden');
             codeInputArea?.classList.remove('hidden');
 
-            // 화질 정보 표시
+            // 화질 정보 표시 & contentHint 설정
             const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.contentHint = 'motion';  // 라이브 방송 최적화
+            }
             const settings = videoTrack.getSettings();
             console.log('Video settings:', settings);
             window.currentVideoSettings = settings;
@@ -408,13 +419,14 @@ export async function initBroadcaster() {
                                             if (!params.encodings) {
                                                 params.encodings = [{}];
                                             }
-                                            // 비트레이트 설정: 최소 1Mbps, 최대 8Mbps
-                                            params.encodings[0].maxBitrate = 8000000; // 8 Mbps
-                                            params.encodings[0].minBitrate = 1000000; // 1 Mbps
+                                            // 비트레이트 설정: 최대 8Mbps, 해상도 & 프레임레이트 고정
+                                            params.encodings[0].maxBitrate = 8000000;
+                                            params.encodings[0].scaleResolutionDownBy = 1.0;  // 해상도 다운스케일 없음
+                                            params.encodings[0].maxFramerate = 30;            // 최대 30fps
                                             // 해상도 유지 우선 (프레임 낮춰도 OK)
                                             params.degradationPreference = 'maintain-resolution';
                                             await sender.setParameters(params);
-                                            console.log('[Broadcaster] ✅ High bitrate set: 1-8 Mbps, maintain-resolution');
+                                            console.log('[Broadcaster] ✅ High bitrate set: 8 Mbps, 1080p@30fps, maintain-resolution');
                                         }
                                     }
                                 }
